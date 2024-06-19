@@ -13,8 +13,9 @@
     "data": [
         "security/ir.model.access.csv",
         "views/hr_analytic_timesheet.xml",
-        "views/project_task.xml"
-        "wizard/project_task_popup_timesheet_view.xml"        ],
+        "views/project_task.xml",
+        "wizard/project_task_popup_timesheet_view.xml",
+    ],
     "installable": True,
     "auto_install": False,
 }

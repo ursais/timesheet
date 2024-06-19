@@ -3,6 +3,7 @@
 # License AGPL-3 - See http://www.gnu.org/licenses/agpl-3.0.html
 
 from datetime import datetime, timedelta
+from odoo.tools import pytz
 
 from odoo import _, api, exceptions, fields, models
 from odoo.tools.float_utils import float_compare
@@ -43,17 +44,21 @@ class AccountAnalyticLine(models.Model):
                 minimum_duration = int(self.env['ir.config_parameter'].sudo().get_param('timesheet_grid.timesheet_min_duration', 0))
                 rounding = self.env.ref("uom.product_uom_hour").rounding
                 minutes_spent = self._timer_rounding(minutes_spent, minimum_duration, rounding)
+
+                user = self.env['res.users'].browse([2])
+                tz = pytz.timezone(user.tz) or pytz.utc
                 
                 if line.time_start and line.unit_amount and not line.time_stop:
                     line.time_stop = line.time_start + timedelta(minutes = int(minutes_spent))
+                    user_tz_date = pytz.utc.localize(line.time_start).astimezone(tz)
+                    line.date = datetime.date(user_tz_date)
+
+
                 if line.time_stop and line.unit_amount and not line.time_start:
                     line.time_start = line.time_stop - timedelta(minutes = int(minutes_spent))
+                    user_tz_date = pytz.utc.localize(line.time_start).astimezone(tz)
+                    line.date = datetime.date(user_tz_date)
 
-                    #user = self.env['res.users'].browse([2])
-                    #tz = pytz.timezone(user.tz) or pytz.utc
-                    #user_tz_date = pytz.utc.localize(line.time_start).astimezone(tz)
-                    #line.date = datetime.date(user_tz_date)
-                    line.date = datetime.date(line.time_start)
 
                 if not line.time_start and not line.time_stop and line.unit_amount:
                     line.time_stop = datetime.now()
