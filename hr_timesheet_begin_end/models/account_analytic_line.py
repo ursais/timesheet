@@ -2,86 +2,85 @@
 # Copyright 2017 Tecnativa, S.L. - Luis M. Ontalba
 # License AGPL-3 - See http://www.gnu.org/licenses/agpl-3.0.html
 
-from datetime import timedelta
+from datetime import datetime, timedelta
+from odoo.tools import pytz
 
 from odoo import _, api, exceptions, fields, models
 from odoo.tools.float_utils import float_compare
+
 
 
 class AccountAnalyticLine(models.Model):
     _inherit = "account.analytic.line"
     _order = "date desc, time_start desc, id desc"
 
-    time_start = fields.Float(string="Begin Hour")
-    time_stop = fields.Float(string="End Hour")
+    time_start = fields.Datetime(string="Begin Hour")
+    time_stop = fields.Datetime(string="End Hour")
 
     @api.constrains("time_start", "time_stop", "unit_amount")
     def _check_time_start_stop(self):
         for line in self:
-            value_to_html = self.env["ir.qweb.field.float_time"].value_to_html
-            start = timedelta(hours=line.time_start)
-            stop = timedelta(hours=line.time_stop)
-            if stop < start:
-                value_to_html(line.time_start, None)
-                value_to_html(line.time_stop, None)
-
-                raise exceptions.ValidationError(
-                    _(
-                        "The beginning hour (%(html_start)s) must "
-                        "precede the ending hour (%(html_stop)s)."
-                    )
-                    % {
-                        "html_start": value_to_html(line.time_start, None),
-                        "html_stop": value_to_html(line.time_stop, None),
-                    }
-                )
-            hours = (stop - start).seconds / 3600
-            rounding = self.env.ref("uom.product_uom_hour").rounding
-            if hours and float_compare(
-                hours, line.unit_amount, precision_rounding=rounding
-            ):
-                raise exceptions.ValidationError(
-                    _(
-                        "The duration (%(html_unit_amount)s) must be equal to "
-                        "the difference between the hours (%(html_hours)s)."
-                    )
-                    % {
-                        "html_unit_amount": value_to_html(line.unit_amount, None),
-                        "html_hours": value_to_html(hours, None),
-                    }
-                )
-            # check if lines overlap
-            others = self.search(
-                [
-                    ("id", "!=", line.id),
-                    ("user_id", "=", line.user_id.id),
-                    ("date", "=", line.date),
-                    ("time_start", "<", line.time_stop),
-                    ("time_stop", ">", line.time_start),
-                ]
-            )
-            if others:
-                message = _("Lines can't overlap:\n")
-                message += "\n".join(
-                    [
-                        "{} - {}".format(
-                            value_to_html(other.time_start, None),
-                            value_to_html(other.time_stop, None),
+            if line.time_stop and line.time_start:
+                if line.time_stop < line.time_start:
+                    raise exceptions.ValidationError(_("Start time must be before end time."))
+            
+                if line.unit_amount:
+                    hours = (line.time_stop - line.time_start).total_seconds() / 3600
+                    rounding = self.env.ref("uom.product_uom_hour").rounding
+                    if hours and float_compare(hours, line.unit_amount, precision_rounding=rounding):
+                        # raise exceptions.ValidationError(
+                        # _("The duration (" + str(line.unit_amount) + ") 
+                        # must be equal to the difference between the start 
+                        # (" + str(line.time_start) + ") and end time 
+                        # (" + str(line.time_stop) + ") " + str(hours) + "."))
+                        raise exceptions.ValidationError(
+                            _("The duration does not line up with start and end times.")
                         )
-                        for other in (line + others).sorted(
-                            key=lambda item: item.time_start
-                        )
-                    ]
-                )
-                raise exceptions.ValidationError(message)
+                else:
+                    hours = (line.time_stop - line.time_start).total_seconds() / 3600
+                    line.unit_amount = float(hours)
+            else:
+                minutes_spent = timedelta(minutes=line.unit_amount).total_seconds()
+                minimum_duration = int(self.env['ir.config_parameter'].sudo().get_param('timesheet_grid.timesheet_min_duration', 0))
+                rounding = self.env.ref("uom.product_uom_hour").rounding
+                minutes_spent = self._timer_rounding(minutes_spent, minimum_duration, rounding)
 
-    @api.onchange("time_start", "time_stop")
-    def onchange_hours_start_stop(self):
-        start = timedelta(hours=self.time_start)
-        stop = timedelta(hours=self.time_stop)
-        if stop < start:
-            return
-        self.unit_amount = (stop - start).seconds / 3600
+                user = self.env['res.users'].browse([2])
+                tz = pytz.timezone(user.tz) or pytz.utc
+                
+                if line.time_start and line.unit_amount and not line.time_stop:
+                    line.time_stop = line.time_start + timedelta(minutes = int(minutes_spent))
+                    user_tz_date = pytz.utc.localize(line.time_start).astimezone(tz)
+                    line.date = datetime.date(user_tz_date)
+
+
+                if line.time_stop and line.unit_amount and not line.time_start:
+                    line.time_start = line.time_stop - timedelta(minutes = int(minutes_spent))
+                    user_tz_date = pytz.utc.localize(line.time_start).astimezone(tz)
+                    line.date = datetime.date(user_tz_date)
+
+
+                if not line.time_start and not line.time_stop and line.unit_amount:
+                    line.time_stop = datetime.now()
+                    line.time_start = line.time_stop - timedelta(minutes = int(minutes_spent))
+                else:
+                    emptycount = 0
+                    if not line.time_start:
+                        emptycount += 1
+                    if not line.time_stop:
+                        emptycount += 1
+                    if not line.unit_amount:
+                        emptycount += 1
+                    if emptycount >= 2:
+                        raise exceptions.ValidationError(
+                            _("There are not enough details to calculate start time, end time, and duration.")
+                        )
+
+
+    def button_calculate(self):
+        # raise exceptions.ValidationError(_("You clicked the calculate button."))
+        return True
+
 
     def merge_timesheets(self):  # pragma: no cover
         """This method is needed in case hr_timesheet_sheet is installed"""

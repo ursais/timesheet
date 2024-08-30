@@ -5,9 +5,9 @@
         <field name="model">account.analytic.line</field>
         <field name="inherit_id" ref="hr_timesheet.hr_timesheet_line_tree" />
         <field name="arch" type="xml">
-            <field name="unit_amount" position="before">
-                <field name="time_start" widget="float_time" optional="show" />
-                <field name="time_stop" widget="float_time" optional="show" />
+            <field name="date" position="after">
+                <field name="time_start" widget="date" optional="show" string="Start Time" />
+                <field name="time_stop" widget="date" optional="show" string="End Time" />
             </field>
         </field>
     </record>
@@ -18,10 +18,26 @@
         <field name="model">account.analytic.line</field>
         <field name="inherit_id" ref="hr_timesheet.hr_timesheet_line_form" />
         <field name="arch" type="xml">
-            <field name="unit_amount" position="before">
-                <field name="time_start" widget="float_time" />
-                <field name="time_stop" widget="float_time" />
+            <field name="date" position="after">
+                <field name="time_start" widget="date" string="Start Time" />
+                <field name="time_stop" widget="date" string="End Time" />
             </field>
+        </field>
+    </record>
+    <record id="helpdesk_ticket_timesheet_extension_startend" model="ir.ui.view">
+        <field name="name">Add start and end time fields</field>
+        <field name="model">helpdesk.ticket</field>
+        <field name="inherit_id" ref="helpdesk_timesheet.helpdesk_ticket_view_form_inherit_helpdesk_timesheet" />
+        <field name="arch" type="xml">
+            <!-- Main task form action buttons -->
+            <xpath
+                expr="//field[@name='timesheet_ids']/tree//field[@name='date']"
+                position="after"
+            >
+                <field name="time_start" widget="date" string="Start Time" />
+                <field name="time_stop" widget="time" string="End Time" />
+                <button name="button_calculate" type="object" string=" Calculate" class="fa fa-play btn-success"/>
+            </xpath>
         </field>
     </record>
 </odoo>
