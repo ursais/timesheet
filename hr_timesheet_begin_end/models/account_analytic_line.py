@@ -24,21 +24,22 @@ class AccountAnalyticLine(models.Model):
                 if line.time_stop < line.time_start:
                     raise exceptions.ValidationError(_("Start time must be before end time."))
             
-                if line.unit_amount:
-                    hours = (line.time_stop - line.time_start).total_seconds() / 3600
-                    rounding = self.env.ref("uom.product_uom_hour").rounding
-                    if hours and float_compare(hours, line.unit_amount, precision_rounding=rounding):
-                        # raise exceptions.ValidationError(
-                        # _("The duration (" + str(line.unit_amount) + ") 
-                        # must be equal to the difference between the start 
-                        # (" + str(line.time_start) + ") and end time 
-                        # (" + str(line.time_stop) + ") " + str(hours) + "."))
-                        raise exceptions.ValidationError(
-                            _("The duration does not line up with start and end times.")
-                        )
-                else:
-                    hours = (line.time_stop - line.time_start).total_seconds() / 3600
-                    line.unit_amount = float(hours)
+                if line.is_timesheet:
+                    if line.unit_amount:
+                        hours = (line.time_stop - line.time_start).total_seconds() / 3600
+                        rounding = self.env.ref("uom.product_uom_hour").rounding
+                        if hours and float_compare(hours, line.unit_amount, precision_rounding=rounding):
+                            # raise exceptions.ValidationError(
+                            # _("The duration (" + str(line.unit_amount) + ") 
+                            # must be equal to the difference between the start 
+                            # (" + str(line.time_start) + ") and end time 
+                            # (" + str(line.time_stop) + ") " + str(hours) + "."))
+                            raise exceptions.ValidationError(
+                                _("The duration does not line up with start and end times.")
+                            )
+                    else:
+                        hours = (line.time_stop - line.time_start).total_seconds() / 3600
+                        line.unit_amount = float(hours)
             else:
                 minutes_spent = timedelta(minutes=line.unit_amount).total_seconds()
                 minimum_duration = int(self.env['ir.config_parameter'].sudo().get_param('timesheet_grid.timesheet_min_duration', 0))
