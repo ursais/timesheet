@@ -38,6 +38,12 @@
                 <field name="time_stop" widget="time" string="End Time" />
                 <button name="button_calculate" type="object" string=" Calculate" class="fa fa-play btn-success"/>
             </xpath>
+            <xpath
+                expr="//field[@name='timesheet_ids']/tree//field[@name='name']"
+                position="attributes"
+            >
+                <attribute name="widget">section_and_note_text</attribute>
+            </xpath>
         </field>
     </record>
 </odoo>
