@@ -49,33 +49,32 @@ class AccountAnalyticLine(models.Model):
                 user = self.env['res.users'].browse([2])
                 tz = pytz.timezone(user.tz) or pytz.utc
                 
-                if line.time_start and line.unit_amount and not line.time_stop:
-                    line.time_stop = line.time_start + timedelta(minutes = int(minutes_spent))
-                    user_tz_date = pytz.utc.localize(line.time_start).astimezone(tz)
-                    line.date = datetime.date(user_tz_date)
+                if line.is_timesheet:
+                    if line.time_start and line.unit_amount and not line.time_stop:
+                        line.time_stop = line.time_start + timedelta(minutes = int(minutes_spent))
+                        user_tz_date = pytz.utc.localize(line.time_start).astimezone(tz)
+                        line.date = datetime.date(user_tz_date)
 
+                    if line.time_stop and line.unit_amount and not line.time_start:
+                        line.time_start = line.time_stop - timedelta(minutes = int(minutes_spent))
+                        user_tz_date = pytz.utc.localize(line.time_start).astimezone(tz)
+                        line.date = datetime.date(user_tz_date)
 
-                if line.time_stop and line.unit_amount and not line.time_start:
-                    line.time_start = line.time_stop - timedelta(minutes = int(minutes_spent))
-                    user_tz_date = pytz.utc.localize(line.time_start).astimezone(tz)
-                    line.date = datetime.date(user_tz_date)
-
-
-                if not line.time_start and not line.time_stop and line.unit_amount:
-                    line.time_stop = datetime.now()
-                    line.time_start = line.time_stop - timedelta(minutes = int(minutes_spent))
-                else:
-                    emptycount = 0
-                    if not line.time_start:
-                        emptycount += 1
-                    if not line.time_stop:
-                        emptycount += 1
-                    if not line.unit_amount:
-                        emptycount += 1
-                    if emptycount >= 2:
-                        raise exceptions.ValidationError(
-                            _("There are not enough details to calculate start time, end time, and duration.")
-                        )
+                    if not line.time_start and not line.time_stop and line.unit_amount:
+                        line.time_stop = datetime.now()
+                        line.time_start = line.time_stop - timedelta(minutes = int(minutes_spent))
+                    else:
+                        emptycount = 0
+                        if not line.time_start:
+                            emptycount += 1
+                        if not line.time_stop:
+                            emptycount += 1
+                        if not line.unit_amount:
+                            emptycount += 1
+                        if emptycount >= 2:
+                            raise exceptions.ValidationError(
+                                _("There are not enough details to calculate start time, end time, and duration.")
+                            )
 
 
     def button_calculate(self):
